@@ -11,3 +11,17 @@ spring:
     serialization:
       FAIL_ON_EMPTY_BEANS: false
     default-property-inclusion: NON_NULL
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    doc-expansion: none
+    disable-swagger-default-url: true
+
+
