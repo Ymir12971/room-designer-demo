@@ -1,0 +1,13 @@
+server:
+  port: 8080
+  tomcat:
+    max-http-form-post-size: 20971520  # 20MB
+    max-swallow-size: 20971520  # 20MB
+  servlet:
+    encoding:
+      max-bytes-per-char: 16   # 每个字符最大字节数
+spring:
+  jackson:
+    serialization:
+      FAIL_ON_EMPTY_BEANS: false
+    default-property-inclusion: NON_NULL
