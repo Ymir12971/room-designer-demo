@@ -3,7 +3,9 @@ package com.example.roomdesigner.service;
 
 import com.example.roomdesigner.model.ImageGenerationRequest;
 import com.example.roomdesigner.model.ImageGenerationResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,6 +27,11 @@ public class ImageGenerationService {
     private final Map<String, Boolean> activeConnections = new ConcurrentHashMap<>();
 
     private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ObjectMapper objectMapper;
+    // 构造函数注入
+    public ImageGenerationService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * 创建新的SSE连接
@@ -87,23 +94,25 @@ public class ImageGenerationService {
                 ImageGenerationResponse response = mockAlgorithmResponse(request);
 
                 // 在开始进度更新之前，先发送说明信息
-                Map<String, Object> descriptionData = new HashMap<>();
-                descriptionData.put("type", "description");
+                Map<String, Object> thinkingEvent = new HashMap<>();
+                thinkingEvent.put("type", "description");
                 // 可以提前生成描述，或使用请求中的信息构建初步描述
-                descriptionData.put("preliminaryDescription", "您选择的风格是：" + request.getStyle());
-                descriptionData.put("description", "正在根据您的要求生成图像：" + request.getPrompt());
-                descriptionData.put("thinking", response.getDescription());
+                thinkingEvent.put("preliminaryDescription", "您选择的风格是：" + request.getStyle());
+                thinkingEvent.put("description", "正在根据您的要求生成图像：" + request.getPrompt());
+                thinkingEvent.put("thinking", response.getDescription());
+
+                String thinkingData = objectMapper.writeValueAsString(thinkingEvent);
 
                 // 发送描述信息
                 emitter.send(SseEmitter.event()
                         .name("THINKING")
-                        .data(descriptionData));
+                        .data(thinkingData, MediaType.APPLICATION_JSON));
 
                 // 给前端一点时间处理描述
                 Thread.sleep(300);
 
                 // 发送进度更新 - 确保使用JSON格式
-                for (int progress = 10; progress <= 90; progress += 10) {
+                for (int progress = 10; progress <= 100; progress += 10) {
                     if (!activeConnections.getOrDefault(clientId, false)) {
                         return;
                     }

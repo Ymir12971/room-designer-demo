@@ -24,6 +24,7 @@ const ImageToImage = () => {
   const timeoutRef = useRef(null);
   const requestInProgressRef = useRef(false);
   const typewriterRef = useRef(null); // 用于保存打字机效果的定时器ID
+  const clientIdRef = useRef(null);
 
   // 打字机效果
   useEffect(() => {
@@ -278,42 +279,83 @@ const ImageToImage = () => {
     }
   };
 
+  // 从服务端获取clientId
+  const getOrUseExistingClientId = async () => {
+    // 检查是否已经有clientId (从ref或localStorage)
+    if (clientIdRef.current) {
+      console.log('使用现有clientId:', clientIdRef.current);
+      return clientIdRef.current;
+    }
+
+    // 也可以从localStorage中获取持久化的clientId
+/*    if (!clientIdRef.current) {
+      existingClientId = localStorage.getItem('roomDesignerClientId');
+    }*/
+
+
+    try {
+      console.log('从服务端获取clientId...');
+      const response = await fetch('http://localhost:8080/api/generate/connect');
+      if (!response.ok) {
+        throw new Error(`服务器返回错误: ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data.clientId) {
+        throw new Error('服务端返回数据中没有clientId');
+      }
+      console.log('获取到clientId:', data.clientId);
+      return data.clientId;
+    } catch (err) {
+      console.error('获取clientId失败:', err);
+      throw err;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!imageUrl) {
       setError('请输入图片URL');
       return;
     }
-    
+
     setError(null);
     setIsProcessing(true);
     setProgress(0);
     setResultImage('');
     setResponseText('');
-    
+
     // 生成唯一客户端ID
-    const newClientId = Date.now().toString();
-    
+    // const newClientId = Date.now().toString();
+
+    // 1. 从服务端获取clientId
+    const clientId = await getOrUseExistingClientId();
+    console.log('获取到的clientId:', clientId);
+    if (!clientId) {
+      throw new Error('获取clientId失败');
+    }
+    // 保存到ref中以便组件内其他地方使用
+    clientIdRef.current = clientId;
+
     try {
       // 关闭之前的连接
       if (eventSource) {
         eventSource.close();
       }
-      
+
       // 创建新的SSE连接
-      console.log('创建SSE连接:', `http://localhost:8080/api/generate/connect/${newClientId}`);
-      const sse = new EventSource(`http://localhost:8080/api/generate/connect/${newClientId}`);
-      
+      console.log('创建SSE连接:', `http://localhost:8080/api/generate/connect/${clientId}`);
+      const sse = new EventSource(`http://localhost:8080/api/generate/connect/${clientId}`);
+
       // 调试所有事件
       sse.onmessage = (event) => {
         console.log('收到通用消息:', event.data);
       };
-      
+
       // 连接建立
       sse.addEventListener('CONNECT', (event) => {
         console.log('SSE连接已建立2:', event.data);
-        
+
         // 连接成功后发送生成请求
-        fetch(`http://localhost:8080/api/generate/image/${newClientId}`, {
+        fetch(`http://localhost:8080/api/generate/image/${clientId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -363,22 +405,22 @@ const ImageToImage = () => {
       });
 
 
-      
+
       // 完成事件
       sse.addEventListener('COMPLETE', (event) => {
         try {
           console.log('原始完成数据:', event.data);
           const data = JSON.parse(event.data);
           console.log('【完成】:', data);
-          
+
           if (data.imageUrl) {
             setResultImage(data.imageUrl);
           }
-          
+
           if (data.description) {
             setResponseText(data.description);
           }
-          
+
           setIsProcessing(false);
           sse.close();
         } catch (err) {
@@ -388,7 +430,7 @@ const ImageToImage = () => {
           sse.close();
         }
       });
-      
+
       // 错误事件
       sse.addEventListener('ERROR', (event) => {
         try {
@@ -404,7 +446,7 @@ const ImageToImage = () => {
           sse.close();
         }
       });
-      
+
       // SSE连接错误
       sse.onerror = (error) => {
         console.error('SSE连接错误:', error);
@@ -412,10 +454,10 @@ const ImageToImage = () => {
         setIsProcessing(false);
         sse.close();
       };
-      
+
       // 保存SSE实例以便清理
       setEventSource(sse);
-      
+
     } catch (err) {
       console.error('处理请求时发生错误:', err);
       setError('处理请求时发生错误: ' + err.message);
@@ -515,12 +557,12 @@ const ImageToImage = () => {
 
         {/* 进度条 */}
         {isProcessing && (
-          <div className="progress-container">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+              <div className="progress-text">{progress}% 完成</div>
             </div>
-            <div className="progress-text">{progress}% 完成</div>
-          </div>
         )}
 
         {/* 结果区域 */}

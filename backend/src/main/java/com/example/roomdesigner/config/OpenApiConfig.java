@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,4 +31,14 @@ public class OpenApiConfig {
                         new Server().url("/").description("默认服务器URL")
                 ));
     }
+
+    // 添加组件扫描配置
+    @Bean
+    public GroupedOpenApi publicApi() {
+        return GroupedOpenApi.builder()
+                .group("public-api")
+                .pathsToMatch("/api/**", "/connect/**", "/image/**", "/close/**", "/generate-stream/**")
+                .build();
+    }
+
 }

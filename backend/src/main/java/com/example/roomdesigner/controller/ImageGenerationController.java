@@ -3,6 +3,7 @@ package com.example.roomdesigner.controller;
 import com.example.roomdesigner.model.ImageGenerationRequest;
 import com.example.roomdesigner.service.ImageGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -30,15 +33,15 @@ public class ImageGenerationController {
      * 创建一个新的SSE连接，分配随机的clientId
      * @return
      */
-    @Operation(summary = "连接到SSE流", description = "创建一个新的SSE连接")
+    @Operation(summary = "获取clientId", description = "获取clientId")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "成功创建SSE连接"),
+            @ApiResponse(responseCode = "200", description = "成功获取clientId"),
             @ApiResponse(responseCode = "500", description = "服务器错误")
     })
-    @GetMapping(value = "/connect", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter connect() {
+    @GetMapping("/connect")
+    public Map<String, String> getClientId() {
         String clientId = UUID.randomUUID().toString();
-        return imageGenerationService.createConnection(clientId);
+        return Collections.singletonMap("clientId", clientId);
     }
 
     /**
@@ -67,7 +70,9 @@ public class ImageGenerationController {
     })
     @PostMapping("/image/{clientId}")
     public ResponseEntity<?> generateImage(
+            @Parameter(description = "客户端唯一标识符，用于后续通信")
             @PathVariable String clientId,
+            @Parameter(description = "图像生成请求参数，包含源图片URL、提示词和风格")
             @RequestBody ImageGenerationRequest request) {
 
         imageGenerationService.generateImage(clientId, request);
@@ -82,7 +87,9 @@ public class ImageGenerationController {
             @ApiResponse(responseCode = "500", description = "服务器错误")
     })
     @DeleteMapping("/close/{clientId}")
-    public ResponseEntity<?> closeConnection(@PathVariable String clientId) {
+    public ResponseEntity<?> closeConnection(
+            @Parameter(description = "客户端唯一标识符，用于后续通信")
+            @PathVariable String clientId) {
         imageGenerationService.closeConnection(clientId);
         return ResponseEntity.ok().build();
     }
@@ -93,7 +100,12 @@ public class ImageGenerationController {
             @ApiResponse(responseCode = "500", description = "服务器错误")
     })
     @GetMapping("/generate-stream")
-    public SseEmitter generateImageStream() {
+    public SseEmitter generateImageStream(
+            @Parameter(description = "图像风格，如'modern'、'classic'、'minimalist'等")
+            @RequestParam(required = false) String style,
+            @Parameter(description = "房间类型，如'livingRoom'、'bedroom'、'kitchen'等")
+            @RequestParam(required = false) String roomType)
+    {
         SseEmitter emitter = new SseEmitter(0L); // 无超时
 
         // 设置完成回调
